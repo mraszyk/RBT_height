@@ -9,9 +9,11 @@ comparing the black-node heights of two RBTs used when computing their union
 (function `compare_height_rbt`), and a monomorphized function
 computing the union of two sets of integers (function `un_nat_set`).
 
-The file `RBT_height.ml` contains the code exported from the theory
-`RBT_height.thy` by Isabelle. It can be reproduced by running
-`isabelle build -d '$AFP' -evD .` and `mv RBT_height.ocaml RBT_height.ml`
+The files `RBT_height_old.ml` and `RBT_height_opt.ml` contain the code exported
+from the theory `RBT_height.thy` by Isabelle using the old and optimized code equations,
+respectively. They can be reproduced by running
+`isabelle build -d '$AFP' -evD .` and `mv RBT_height_old.ocaml RBT_height_old.ml`
+and `mv RBT_height_opt.ocaml RBT_height_opt.ml`
 in the root directory of this repository.
 
 The file `main.ml` runs an experiment computing the union of
@@ -19,7 +21,8 @@ The file `main.ml` runs an experiment computing the union of
 The output consists of three columns. The first two columns show the sizes
 of the two sets in each union of two sets and the third column
 shows the result of comparing the black-node heights of the two RBTs
-(`LT`, `GT`, or `EQ`).
+(`LT`, `GT`, or `EQ`). To compile the file `main.ml`, one of the files
+`RBT_height_old.ml` or `RBT_height_opt.ml` must be copied as `RBT_height.ml`.
 
 In this experiment, the first set is never larger than the second one,
 so manually redefining
