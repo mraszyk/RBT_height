@@ -15,11 +15,13 @@ let str_of_compare = function
 let compare_height_set x y = match x, y with
   | RBT_set x, RBT_set y -> compare_height_rbt x y
 
+let rec run i l = nat_set_upt (nat_of_int (i * l)) (nat_of_int ((i + 1) * l))
+
 let rec union n l =
-  let cur = run (nat_of_int n) (nat_of_int l) in
+  let cur = nat_set (run n l) in
   if n = 0 then cur else
     let rest = union (n - 1) l in
-    let _ = Printf.printf "%d %d %s\n" l (n * l) (str_of_compare (compare_height_set cur rest)) in
+    (* let _ = Printf.printf "%d %d %s\n" l (n * l) (str_of_compare (compare_height_set cur rest)) in *)
     un_nat_set cur rest
 
 let _ = union n l

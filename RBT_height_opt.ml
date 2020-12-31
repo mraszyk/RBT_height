@@ -9,9 +9,10 @@ module RBT_height : sig
     Complement of 'a set
   type compare = LT | GT | EQ
   val nat_of_integer : Z.t -> nat
-  val run : nat -> nat -> nat set
+  val nat_set : nat list -> nat set
   val un_nat_set : nat set -> nat set -> nat set
   val int_nat_set : nat set -> nat set -> nat set
+  val nat_set_upt : nat -> nat -> nat list
   val compare_height_rbt :
     (nat, unit) mapping_rbt -> (nat, unit) mapping_rbt -> compare
 end = struct
@@ -159,22 +160,36 @@ let rec filter
 let rec map f x1 = match f, x1 with f, [] -> []
               | f, x21 :: x22 -> f x21 :: map f x22;;
 
-let rec folda
-  f xa1 x = match f, xa1, x with
-    f, Branch (c, lt, k, v, rt), x -> folda f rt (f k v (folda f lt x))
-    | f, Empty, x -> x;;
+let rec quicksort_acc
+  less ac x2 = match less, ac, x2 with
+    less, ac, x :: v :: va -> quicksort_part less ac x [] [] [] (v :: va)
+    | less, ac, [x] -> x :: ac
+    | less, ac, [] -> ac
+and quicksort_part
+  less ac x lts eqs gts xa6 = match less, ac, x, lts, eqs, gts, xa6 with
+    less, ac, x, lts, eqs, gts, z :: zs ->
+      (if less x z then quicksort_part less ac x lts eqs (z :: gts) zs
+        else (if less z x then quicksort_part less ac x (z :: lts) eqs gts zs
+               else quicksort_part less ac x lts (z :: eqs) gts zs))
+    | less, ac, x, lts, eqs, gts, [] ->
+        quicksort_acc less (eqs @ x :: quicksort_acc less ac gts) lts;;
 
-let rec foldb _A x xc = fold x (list_of_dlist _A xc);;
+let rec quicksort less = quicksort_acc less [];;
 
-let rec is_none = function Some x -> false
-                  | None -> true;;
+let rec lt_of_comp
+  acomp x y = (match acomp x y with Eq -> false | Lt -> true | Gt -> false);;
 
-let rec paint c x1 = match c, x1 with c, Empty -> Empty
-                | c, Branch (uu, l, k, v, r) -> Branch (c, l, k, v, r);;
+let rec remdups_adj _A
+  = function [] -> []
+    | [x] -> [x]
+    | x :: y :: xs ->
+        (if eq _A x y then remdups_adj _A (x :: xs)
+          else x :: remdups_adj _A (y :: xs));;
 
-let rec times_nat m n = Nat (Z.mul (integer_of_nat m) (integer_of_nat n));;
-
-let rec upt_sdlist xb xc = Abs_sdlist (upt xb xc);;
+let rec sdlist_of_list (_A1, _A2)
+  xa = Abs_sdlist
+         (match ccompare _A1 with None -> []
+           | Some c -> remdups_adj _A2 (quicksort (lt_of_comp c) xa));;
 
 let rec rep_sdlist _A (Abs_sdlist x) = x;;
 
@@ -236,9 +251,24 @@ let rec rbtreeify kvs = fst (rbtreeify_g (suc (size_list kvs)) kvs);;
 let rec sset _A
   xa = Mapping_RBT (rbtreeify (map (fun x -> (x, ())) (rep_sdlist _A xa)));;
 
-let rec nat_set_upt i j = RBT_set (sset ccompare_nat (upt_sdlist i j));;
+let rec set (_A1, _A2)
+  xs = (match ccompare _A1
+         with None ->
+           failwith "set: ccompare = None" (fun _ -> set (_A1, _A2) xs)
+         | Some _ -> RBT_set (sset _A1 (sdlist_of_list (_A1, _A2) xs)));;
 
-let rec run i l = nat_set_upt (times_nat i l) (times_nat (suc i) l);;
+let rec folda
+  f xa1 x = match f, xa1, x with
+    f, Branch (c, lt, k, v, rt), x -> folda f rt (f k v (folda f lt x))
+    | f, Empty, x -> x;;
+
+let rec foldb _A x xc = fold x (list_of_dlist _A xc);;
+
+let rec is_none = function Some x -> false
+                  | None -> true;;
+
+let rec paint c x1 = match c, x1 with c, Empty -> Empty
+                | c, Branch (uu, l, k, v, r) -> Branch (c, l, k, v, r);;
 
 let rec list_insert
   equal x xs = (if list_member equal xs x then xs else x :: xs);;
@@ -481,6 +511,8 @@ let rec baliR
 
 let rec painta c x1 = match c, x1 with c, Empty -> Empty
                  | c, Branch (uu, l, a, (), r) -> Branch (c, l, a, (), r);;
+
+let rec nat_set x = set (ccompare_nat, equal_nat) x;;
 
 let rec skip_black
   t = (let ta = skip_red t in
@@ -798,6 +830,8 @@ and inf_set (_A1, _A2)
 let rec un_nat_set x y = sup_set (ceq_nat, ccompare_nat) x y;;
 
 let rec int_nat_set x y = inf_set (ceq_nat, ccompare_nat) x y;;
+
+let rec nat_set_upt i j = upt i j;;
 
 let rec compare_height
   sx s t tx =
