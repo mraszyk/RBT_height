@@ -1,20 +1,13 @@
 module RBT_height : sig
   type nat
   val integer_of_nat : nat -> Z.t
-  type ('a, 'b) rbt
-  type ('b, 'a) mapping_rbt
-  type 'a set_dlist
-  type 'a set = Collect_set of ('a -> bool) | DList_set of 'a set_dlist |
-    RBT_set of ('a, unit) mapping_rbt | Set_Monad of 'a list |
-    Complement of 'a set
-  type compare = LT | GT | EQ
+  type 'a set
   val nat_of_integer : Z.t -> nat
   val nat_set : nat list -> nat set
+  val nat_upt : nat -> nat -> nat list
+  val nat_sset : nat list -> nat set
   val un_nat_set : nat set -> nat set -> nat set
-  val int_nat_set : nat set -> nat set -> nat set
-  val nat_set_upt : nat -> nat -> nat list
-  val compare_height_rbt :
-    (nat, unit) mapping_rbt -> (nat, unit) mapping_rbt -> compare
+  val inter_nat_set : nat set -> nat set -> nat set
 end = struct
 
 type nat = Nat of Z.t;;
@@ -107,6 +100,8 @@ type 'a set = Collect_set of ('a -> bool) | DList_set of 'a set_dlist |
   Complement of 'a set;;
 
 type compare = LT | GT | EQ;;
+
+type 'a sdlist = Abs_sdlist of 'a list;;
 
 let rec id x = (fun xa -> xa) x;;
 
@@ -491,6 +486,9 @@ let rec filter
   p x1 = match p, x1 with p, [] -> []
     | p, x :: xs -> (if p x then x :: filter p xs else filter p xs);;
 
+let rec map f x1 = match f, x1 with f, [] -> []
+              | f, x21 :: x22 -> f x21 :: map f x22;;
+
 let rec of_phantom (Phantom x) = x;;
 
 let rec emptya _A = Mapping_RBT Empty;;
@@ -549,6 +547,101 @@ let rec map_filter
         (match f x with None -> map_filter f xs
           | Some y -> y :: map_filter f xs);;
 
+let rec quicksort_acc
+  less ac x2 = match less, ac, x2 with
+    less, ac, x :: v :: va -> quicksort_part less ac x [] [] [] (v :: va)
+    | less, ac, [x] -> x :: ac
+    | less, ac, [] -> ac
+and quicksort_part
+  less ac x lts eqs gts xa6 = match less, ac, x, lts, eqs, gts, xa6 with
+    less, ac, x, lts, eqs, gts, z :: zs ->
+      (if less x z then quicksort_part less ac x lts eqs (z :: gts) zs
+        else (if less z x then quicksort_part less ac x (z :: lts) eqs gts zs
+               else quicksort_part less ac x lts (z :: eqs) gts zs))
+    | less, ac, x, lts, eqs, gts, [] ->
+        quicksort_acc less (eqs @ x :: quicksort_acc less ac gts) lts;;
+
+let rec quicksort less = quicksort_acc less [];;
+
+let rec lt_of_comp
+  acomp x y = (match acomp x y with Eq -> false | Lt -> true | Gt -> false);;
+
+let rec remdups_adj _A
+  = function [] -> []
+    | [x] -> [x]
+    | x :: y :: xs ->
+        (if eq _A x y then remdups_adj _A (x :: xs)
+          else x :: remdups_adj _A (y :: xs));;
+
+let rec sdlist_of_list (_A1, _A2)
+  xa = Abs_sdlist
+         (match ccompare _A1 with None -> []
+           | Some c -> remdups_adj _A2 (quicksort (lt_of_comp c) xa));;
+
+let rec rep_sdlist _A (Abs_sdlist x) = x;;
+
+let zero_nat : nat = Nat Z.zero;;
+
+let rec size_list x = gen_length zero_nat x;;
+
+let rec fst (x1, x2) = x1;;
+
+let rec max _A a b = (if less_eq _A a b then b else a);;
+
+let rec nat_of_integer k = Nat (max ord_integer Z.zero k);;
+
+let rec apfst f (x, y) = (f x, y);;
+
+let rec map_prod f g (a, b) = (f a, g b);;
+
+let rec divmod_nat
+  m n = (let k = integer_of_nat m in
+         let l = integer_of_nat n in
+          map_prod nat_of_integer nat_of_integer
+            (if Z.equal k Z.zero then (Z.zero, Z.zero)
+              else (if Z.equal l Z.zero then (Z.zero, k)
+                     else (fun k l -> if Z.equal Z.zero l then (Z.zero, l) else
+                            Z.div_rem (Z.abs k) (Z.abs l))
+                            k l)));;
+
+let rec rbtreeify_g
+  n kvs =
+    (if equal_nata n zero_nat || equal_nata n one_nat then (Empty, kvs)
+      else (let (na, r) = divmod_nat n (nat_of_integer (Z.of_int 2)) in
+             (if equal_nata r zero_nat
+               then (let (t1, (k, v) :: kvsa) = rbtreeify_g na kvs in
+                      apfst (fun a -> Branch (B, t1, k, v, a))
+                        (rbtreeify_g na kvsa))
+               else (let (t1, (k, v) :: kvsa) = rbtreeify_f na kvs in
+                      apfst (fun a -> Branch (B, t1, k, v, a))
+                        (rbtreeify_g na kvsa)))))
+and rbtreeify_f
+  n kvs =
+    (if equal_nata n zero_nat then (Empty, kvs)
+      else (if equal_nata n one_nat
+             then (let (k, v) :: kvsa = kvs in
+                    (Branch (R, Empty, k, v, Empty), kvsa))
+             else (let (na, r) = divmod_nat n (nat_of_integer (Z.of_int 2)) in
+                    (if equal_nata r zero_nat
+                      then (let (t1, (k, v) :: kvsa) = rbtreeify_f na kvs in
+                             apfst (fun a -> Branch (B, t1, k, v, a))
+                               (rbtreeify_g na kvsa))
+                      else (let (t1, (k, v) :: kvsa) = rbtreeify_f na kvs in
+                             apfst (fun a -> Branch (B, t1, k, v, a))
+                               (rbtreeify_f na kvsa))))));;
+
+let rec rbtreeify kvs = fst (rbtreeify_g (suc (size_list kvs)) kvs);;
+
+let rec rbt_of_sdlist _A
+  xa = Mapping_RBT (rbtreeify (map (fun x -> (x, ())) (rep_sdlist _A xa)));;
+
+let rec sset (_A1, _A2)
+  xs = (match ccompare _A1
+         with None ->
+           failwith "sset: ccompare = None" (fun _ -> sset (_A1, _A2) xs)
+         | Some _ ->
+           RBT_set (rbt_of_sdlist _A1 (sdlist_of_list (_A1, _A2) xs)));;
+
 let rec filtera _A xb xc = Abs_dlist (filter xb (list_of_dlist _A xc));;
 
 let rec gen_entries
@@ -603,58 +696,6 @@ let rec compare_height
             (Branch (_, ta, _, _, _), Branch (_, txa, _, _, _))))
         -> compare_height (skip_black sxa) sa ta (skip_black txa));;
 
-let zero_nat : nat = Nat Z.zero;;
-
-let rec size_list x = gen_length zero_nat x;;
-
-let rec fst (x1, x2) = x1;;
-
-let rec max _A a b = (if less_eq _A a b then b else a);;
-
-let rec nat_of_integer k = Nat (max ord_integer Z.zero k);;
-
-let rec apfst f (x, y) = (f x, y);;
-
-let rec map_prod f g (a, b) = (f a, g b);;
-
-let rec divmod_nat
-  m n = (let k = integer_of_nat m in
-         let l = integer_of_nat n in
-          map_prod nat_of_integer nat_of_integer
-            (if Z.equal k Z.zero then (Z.zero, Z.zero)
-              else (if Z.equal l Z.zero then (Z.zero, k)
-                     else (fun k l -> if Z.equal Z.zero l then (Z.zero, l) else
-                            Z.div_rem (Z.abs k) (Z.abs l))
-                            k l)));;
-
-let rec rbtreeify_g
-  n kvs =
-    (if equal_nata n zero_nat || equal_nata n one_nat then (Empty, kvs)
-      else (let (na, r) = divmod_nat n (nat_of_integer (Z.of_int 2)) in
-             (if equal_nata r zero_nat
-               then (let (t1, (k, v) :: kvsa) = rbtreeify_g na kvs in
-                      apfst (fun a -> Branch (B, t1, k, v, a))
-                        (rbtreeify_g na kvsa))
-               else (let (t1, (k, v) :: kvsa) = rbtreeify_f na kvs in
-                      apfst (fun a -> Branch (B, t1, k, v, a))
-                        (rbtreeify_g na kvsa)))))
-and rbtreeify_f
-  n kvs =
-    (if equal_nata n zero_nat then (Empty, kvs)
-      else (if equal_nata n one_nat
-             then (let (k, v) :: kvsa = kvs in
-                    (Branch (R, Empty, k, v, Empty), kvsa))
-             else (let (na, r) = divmod_nat n (nat_of_integer (Z.of_int 2)) in
-                    (if equal_nata r zero_nat
-                      then (let (t1, (k, v) :: kvsa) = rbtreeify_f na kvs in
-                             apfst (fun a -> Branch (B, t1, k, v, a))
-                               (rbtreeify_g na kvsa))
-                      else (let (t1, (k, v) :: kvsa) = rbtreeify_f na kvs in
-                             apfst (fun a -> Branch (B, t1, k, v, a))
-                               (rbtreeify_f na kvsa))))));;
-
-let rec rbtreeify kvs = fst (rbtreeify_g (suc (size_list kvs)) kvs);;
-
 let rec rbt_comp_union_with_key
   c f t1 t2 =
     (match compare_height t1 t1 t2 t2
@@ -705,6 +746,8 @@ let rec meet _A
 
 let rec nat_set x = set (ceq_nat, ccompare_nat, set_impl_nat) x;;
 
+let rec nat_upt i j = upt i j;;
+
 let rec filterb _A
   xb xc = Mapping_RBT (rbtreeify (filter xb (entries (impl_of _A xc))));;
 
@@ -718,6 +761,8 @@ let rec inter_list _A
                   (rbt_comp_lookup (the (ccompare _A)) (impl_of _A xb) x)))
           xc)
         Empty);;
+
+let rec nat_sset x = sset (ccompare_nat, equal_nat) x;;
 
 let rec uminus_set = function Complement b -> b
                      | Collect_set p -> Collect_set (fun x -> not (p x))
@@ -894,13 +939,6 @@ and inf_set (_A1, _A2)
 
 let rec un_nat_set x y = sup_set (ceq_nat, ccompare_nat) x y;;
 
-let rec int_nat_set x y = inf_set (ceq_nat, ccompare_nat) x y;;
-
-let rec nat_set_upt i j = upt i j;;
-
-let rec compare_height_rbt
-  t1 t2 =
-    compare_height (impl_of ccompare_nat t1) (impl_of ccompare_nat t1)
-      (impl_of ccompare_nat t2) (impl_of ccompare_nat t2);;
+let rec inter_nat_set x y = inf_set (ceq_nat, ccompare_nat) x y;;
 
 end;; (*struct RBT_height*)
