@@ -106,8 +106,10 @@ export_code nat_set_upt nat_set un_nat_set int_nat_set
   nat_of_integer integer_of_nat compare_height_rbt RBT_set RBT_Impl.EQ
   in OCaml module_name RBT_height file_prefix "RBT_height_old"
 
+(*
 declare Set_Impl.set_code[code del]
 declare set_code[code]
+*)
 
 declare Set_union_code(1)[code del]
 declare rbt_union_code[code]
